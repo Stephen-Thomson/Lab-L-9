@@ -1,5 +1,7 @@
 import express, { Express, Request, Response } from 'express'
 import bodyParser from 'body-parser'
+import Authrite from 'authrite-express'
+import fs from 'fs'
 
 // Let TypeScript know there is possibly an authrite prop on incoming requests
 declare module 'express-serve-static-core' {
@@ -14,7 +16,9 @@ declare module 'express-serve-static-core' {
 const app: Express = express()
 const port = 3000
 
-// TODO: Define the server private key and base URL
+// Define the server private key and base URL
+const serverPrivateKey = fs.readFileSync('server-private-key.hex', 'utf8').trim(); // Load private key from a file
+const baseUrl = 'http://localhost:3000' // Base URL of application
 
 // Middleware
 app.use(bodyParser.json())
@@ -34,11 +38,33 @@ app.use((req, res, next) => {
   }
 })
 
-// TODO (Optionally): Configure non-protected routes
+// Non-protected route
+app.get('/non-protected', (req: Request, res: Response) => {
+  res.json({ message: 'This is a non-protected route' })
+})
 
-// TODO: Configure the express server to use the authrite middleware
+// Use Authrite middleware to validate requests
+app.use(
+  Authrite.middleware({
+    serverPrivateKey,
+    baseUrl,
+  })
+)
 
-// TODO: Configure protected route
+// Protected route
+app.post('/protected', (req: Request, res: Response) => {
+  if (req.authrite && req.authrite.identityKey) {
+    const userIdentityKey = req.authrite.identityKey
+    console.log('Authenticated User Identity Key:', userIdentityKey)
+    
+    res.json({
+      message: `Authenticated user identity key: ${userIdentityKey}`,
+    })
+  } else {
+    console.log('Unauthorized access attempt.')
+    res.status(401).json({ message: 'Unauthorized' })
+  }
+})
 
 // Start the server
 app.listen(port, () => {
